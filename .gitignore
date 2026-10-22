@@ -1,0 +1,11 @@
+# 私密配置
+local_config.py
+
+# 运行时数据：快照、跟单记录、日志
+data/
+*.log
+
+__pycache__/
+.DS_Store
+.vscode/
+.idea/
