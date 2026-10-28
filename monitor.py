@@ -203,12 +203,13 @@ class Watcher:
     # 收益概况刷新间隔（秒），有变化时立即刷新
     SUMMARY_REFRESH = 600
 
-    def __init__(self, portfolio_id: str):
+    def __init__(self, portfolio_id: str, announce: bool = False):
+        """announce=True 时首次检查推送一次「开始监听」，用于测试推送通道"""
         self.portfolio_id = portfolio_id
         self.portfolio_name = str(portfolio_id)
         self._summary = None
         self._summary_time = 0.0
-        self._announced = False
+        self._announce = announce
         self._last = load_snapshot(self.SNAPSHOT, portfolio_id)
         self._refresh_summary(force=True)
 
@@ -222,15 +223,17 @@ class Watcher:
             self.portfolio_name = summary["name"]
 
     def check(self, positions: list[dict]) -> dict | None:
-        """对比上次持仓，有变化则推送通知并返回 diff，无变化返回 None。首次调用推送开始监听"""
+        """对比上次持仓，有变化则推送通知并返回 diff，无变化返回 None。没有上次持仓时只记录不推送"""
         last, self._last = self._last, positions
         save_snapshot(self.SNAPSHOT, self.portfolio_id, positions)
         diff = diff_positions(last, positions) if last is not None else None
         changed = diff is not None and (has_changes(diff) or bool(diff["filled"]))
         self._refresh_summary(force=changed)
 
-        if not self._announced:
-            self._announced = True
+        if last is None:
+            logger.info("首次运行，已记录当前持仓作为对比基准")
+        if self._announce:
+            self._announce = False
             notify_startup(self.portfolio_name, self._summary, positions)
         if not changed:
             return None
